@@ -1,0 +1,51 @@
+.rating-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.rating-stars--disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rating-star {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #ddd;
+  transition: color 0.15s ease;
+  padding: 0;
+  line-height: 1;
+}
+
+.rating-star:hover:not(:disabled) {
+  color: #ffc107;
+}
+
+.rating-star--filled {
+  color: #ffc107;
+}
+
+.rating-star:disabled {
+  cursor: not-allowed;
+}
+
+/* Size variants */
+.rating-stars--small .rating-star {
+  font-size: 16px;
+}
+
+.rating-stars--medium .rating-star {
+  font-size: 24px;
+}
+
+.rating-stars--large .rating-star {
+  font-size: 32px;
+}
+
+.rating-value {
+  margin-left: 8px;
+  font-size: 14px;
+  color: #666;
+}

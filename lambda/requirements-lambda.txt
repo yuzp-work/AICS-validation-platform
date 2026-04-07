@@ -1,0 +1,12 @@
+# Bedrock QA Validation System - Lambda Runtime Dependencies
+# This file contains only the dependencies needed for Lambda execution
+
+# Strands Agent Framework
+strands-agents>=0.1.0
+strands-agents-tools>=0.1.0
+
+# AWS SDK (usually pre-installed in Lambda, but include for consistency)
+boto3>=1.34.0
+
+# Utilities
+python-dateutil>=2.8.2

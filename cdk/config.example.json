@@ -1,0 +1,8 @@
+{
+  "knowledgeBaseId": "YOUR_KNOWLEDGE_BASE_ID",
+  "modelId": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "systemPrompt": "你是一个专业的客服助手。请根据提供的知识库内容回答用户的问题。如果知识库中没有相关信息，请诚实地告知用户你无法回答该问题。回答时请保持专业、友好的语气。",
+  "awsRegion": "us-west-2",
+  "stackName": "",
+  "resourcePrefix": ""
+}
