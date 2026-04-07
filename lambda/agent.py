@@ -155,14 +155,19 @@ class QAAgent:
             self._agent.messages = []  # Reset conversation history
             print(f"[DEBUG] After reset - agent.messages count: {len(self._agent.messages)}")
 
-            # Temporarily update the system prompt to include confidence threshold
+            # Temporarily update the system prompt to include confidence threshold and enable metadata
             original_system = self._agent.system_prompt
             enhanced_system = (
                 f"{original_system}\n\n"
-                f"CRITICAL INSTRUCTION: When you use the retrieve tool to search the knowledge base, "
-                f"you MUST set the 'score' parameter to {confidence_threshold}. This ensures that only "
-                f"knowledge base results with relevance score >= {confidence_threshold} are retrieved "
-                f"and used to answer the user's question. Do not use results with lower scores."
+                f"CRITICAL INSTRUCTIONS for using the retrieve tool:\n"
+                f"1. ALWAYS set 'enableMetadata' to true - this is REQUIRED to get complete answers from the knowledge base\n"
+                f"2. ALWAYS set the 'score' parameter to {confidence_threshold}\n"
+                f"3. The knowledge base stores Q&A pairs where:\n"
+                f"   - 'Content' field = the question\n"
+                f"   - 'Answer' field (in metadata) = the actual answer you need\n"
+                f"4. Without enableMetadata=true, you will only see questions without answers!\n"
+                f"\nExample correct usage:\n"
+                f"retrieve(text=\"user's question\", score={confidence_threshold}, enableMetadata=true)"
             )
             self._agent.system_prompt = enhanced_system
 
@@ -258,6 +263,15 @@ class QAAgent:
                 for j, item in enumerate(content):
                     if not isinstance(item, dict):
                         continue
+
+                    # 查找 toolUse（Agent 调用工具）
+                    if 'toolUse' in item:
+                        tool_use = item['toolUse']
+                        tool_name = tool_use.get('name', 'unknown')
+                        tool_input = tool_use.get('input', {})
+                        enable_metadata = tool_input.get('enableMetadata', False)
+                        score_param = tool_input.get('score', 'not set')
+                        print(f"[DEBUG] Agent called tool '{tool_name}' with enableMetadata={enable_metadata}, score={score_param}")
 
                     # 查找 toolResult
                     if 'toolResult' in item:
