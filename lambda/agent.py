@@ -149,6 +149,12 @@ class QAAgent:
         logger.info(f"Processing question: {question[:100]}... with confidence threshold: {confidence_threshold}")
 
         try:
+            # CRITICAL FIX: Clear agent messages history to prevent state pollution across requests
+            # Without this, messages from previous questions accumulate and cause incorrect chunk extraction
+            print(f"[DEBUG] Before reset - agent.messages count: {len(self._agent.messages) if self._agent.messages else 0}")
+            self._agent.messages = []  # Reset conversation history
+            print(f"[DEBUG] After reset - agent.messages count: {len(self._agent.messages)}")
+
             # Temporarily update the system prompt to include confidence threshold
             original_system = self._agent.system_prompt
             enhanced_system = (
@@ -210,70 +216,77 @@ class QAAgent:
     ) -> List[dict]:
         """
         从 agent.messages 中提取召回的知识库片段
-        
+
         strands_tools retrieve 返回的格式是文本字符串:
         "Retrieved N results with score >= X:
         Score: 0.6419
         Document ID: s3://...
         Content: ...
         Metadata: {...}
-        
+
         Score: 0.5536
         ..."
-        
+
         Args:
             messages: agent.messages 列表
             confidence_threshold: 置信度阈值
-            
+
         Returns:
             召回内容列表，按置信度降序排列
         """
         chunks = []
-        
+
         if not messages:
             print("[DEBUG] No messages to extract chunks from")
             return chunks
-        
+
+        print(f"[DEBUG] Extracting chunks from {len(messages)} messages")
+
         try:
             for i, msg in enumerate(messages):
                 if not isinstance(msg, dict):
                     continue
-                
+
+                # Log message structure for debugging
+                msg_role = msg.get('role', 'unknown')
+                print(f"[DEBUG] Message {i}: role={msg_role}")
+
                 content = msg.get('content', [])
                 if not isinstance(content, list):
                     continue
-                
+
                 for j, item in enumerate(content):
                     if not isinstance(item, dict):
                         continue
-                    
+
                     # 查找 toolResult
                     if 'toolResult' in item:
                         tool_result = item['toolResult']
                         status = tool_result.get('status', '')
-                        
+                        tool_use_id = tool_result.get('toolUseId', 'unknown')
+
+                        print(f"[DEBUG] Found toolResult in message {i}, content {j}: status={status}, toolUseId={tool_use_id}")
+
                         # 只处理成功的结果
                         if status != 'success':
                             print(f"[DEBUG] Skipping toolResult with status: {status}")
                             continue
-                        
-                        print(f"[DEBUG] Found successful toolResult in message {i}, content {j}")
-                        
+
                         if isinstance(tool_result, dict):
                             tr_content = tool_result.get('content', [])
-                            
+
                             if isinstance(tr_content, list):
                                 for k, tr_item in enumerate(tr_content):
                                     if isinstance(tr_item, dict) and 'text' in tr_item:
                                         text = tr_item['text']
-                                        print(f"[DEBUG] Parsing retrieve text result, length: {len(text)}")
-                                        
+                                        print(f"[DEBUG] Parsing retrieve text result (toolUseId={tool_use_id}), length: {len(text)}")
+
                                         # 解析 strands_tools retrieve 的文本格式
                                         parsed_chunks = self._parse_retrieve_text_format(text)
-                                        print(f"[DEBUG] Parsed {len(parsed_chunks)} chunks from text")
+                                        print(f"[DEBUG] Parsed {len(parsed_chunks)} chunks from text (toolUseId={tool_use_id})")
                                         chunks.extend(parsed_chunks)
-            
-            print(f"[DEBUG] Total chunks extracted: {len(chunks)}")
+
+            print(f"[DEBUG] Total chunks extracted from all messages: {len(chunks)}")
 
             # Deduplicate chunks by chunk_id (keep the one with highest score)
             seen_chunk_ids = {}
@@ -300,6 +313,14 @@ class QAAgent:
             )
 
             print(f"[DEBUG] Chunks after filtering (threshold={confidence_threshold}): {len(filtered_chunks)}")
+
+            # WARN: If no chunks found after filtering
+            if len(filtered_chunks) == 0 and len(chunks) > 0:
+                print(f"[WARN] All {len(chunks)} retrieved chunks were filtered out by confidence threshold {confidence_threshold}")
+                print(f"[WARN] Consider lowering the threshold or improving knowledge base content")
+            elif len(filtered_chunks) == 0:
+                print(f"[WARN] No chunks retrieved from knowledge base - retrieve tool may have returned empty results")
+
             return filtered_chunks
             
         except Exception as e:
